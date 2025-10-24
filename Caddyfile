@@ -1,60 +1,12 @@
-
-
-
-{
-    acme_ca https://acme-v02.api.letsencrypt.org/directory
-    email fx37s@ya.ru
-}
-
-# Основной домен для панели управления
 panel.globalshield.ru {
     reverse_proxy http://remnawave:3000
-}
-
-# API бэкенд для мини-приложения
-api.globalshield.ru {
-    root * /srv/api
-    php_fastcgi php-api:9000
-    file_server
-    
-    # CORS для фронтенда
-    header Access-Control-Allow-Origin https://www.globalshield.ru
-    header Access-Control-Allow-Methods GET,POST,OPTIONS
-    header Access-Control-Allow-Headers Content-Type,Authorization
-    
-    # Логирование
-    log {
-        output file /var/log/api-access.log
-    }
-}
-
-# Фронтенд сайта
-www.globalshield.ru {
-    root * /srv/www
-    file_server
-    encode gzip
-    
-    # Главная страница
-    try_files {path} {path}/ /index.html
-    
-    # Проксирование API запросов
-    handle /api/* {
-        reverse_proxy https://api.globalshield.ru {
-            header_up Host api.globalshield.ru
-        }
-    }
-    
-    # Логирование
-    log {
-        output file /var/log/www-access.log
-    }
 }
 
 subscribe.globalshield.ru {
     reverse_proxy http://remnawave-subscription-page:3010
 }
 
-# Редирект с globalshield.ru на www
-globalshield.ru {
-    redir https://www.globalshield.ru{uri} permanent
+# ДОБАВЛЯЕМ ТОЛЬКО ЭТОТ БЛОК
+api.globalshield.ru {
+    reverse_proxy http://payment-api:80
 }
