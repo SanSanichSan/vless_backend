@@ -1,0 +1,7 @@
+panel.globalshield.ru {
+    reverse_proxy http://remnawave:3000
+}
+
+subscribe.globalshield.ru {
+    reverse_proxy http://remnawave-subscription-page:3010
+}
