@@ -1,12 +1,11 @@
 services:
-  # База данных для Remnawave (использует существующий .env)
   remnawave-db:
     image: postgres:17.6
     container_name: 'remnawave-db'
     hostname: remnawave-db
     restart: always
     env_file:
-      - .env  # Существующий .env для Remnawave
+      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -16,32 +15,6 @@ services:
       - '127.0.0.1:6767:5432'
     volumes:
       - remnawave-db-data:/var/lib/postgresql/data
-    networks:
-      - remnawave-network
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
-      interval: 3s
-      timeout: 10s
-      retries: 3
-
-  # База данных для Payment API (использует новый .env.api)
-  payment-db:
-    image: postgres:17.6
-    container_name: 'payment-db'
-    hostname: payment-db
-    restart: always
-    env_file:
-      - .env.api  # Новый .env файл для API
-    environment:
-      - POSTGRES_USER=${PAYMENT_DB_USER}
-      - POSTGRES_PASSWORD=${PAYMENT_DB_PASSWORD}
-      - POSTGRES_DB=${PAYMENT_DB_NAME}
-      - TZ=UTC
-    ports:
-      - '127.0.0.1:6768:5432'
-    volumes:
-      - payment-db-data:/var/lib/postgresql/data
-      - ./init-payment.sql:/docker-entrypoint-initdb.d/init-payment.sql
     networks:
       - remnawave-network
     healthcheck:
@@ -63,13 +36,6 @@ services:
     volumes:
         - ./Caddyfile:/etc/caddy/Caddyfile
         - caddy-ssl-data:/data
-    depends_on:
-      remnawave:
-        condition: service_started
-      remnawave-subscription-page:
-        condition: service_started
-      payment-api:
-        condition: service_started
 
   remnawave:
     image: remnawave/backend:2
@@ -79,7 +45,7 @@ services:
     ports:
       - '127.0.0.1:3000:3000'
     env_file:
-      - .env  # Существующий .env для Remnawave
+      - .env
     networks:
       - remnawave-network
     healthcheck:
@@ -115,19 +81,16 @@ services:
     hostname: remnawave-subscription-page
     restart: always
     env_file:
-      - .env  # Существующий .env для Remnawave
+      - .env
     environment:
         - REMNAWAVE_PANEL_URL=http://remnawave:3000
         - APP_PORT=3010
         - META_TITLE="GlobalShield.ru - Подписка"
         - META_DESCRIPTION="Ваш щит в цифровом мире"
     ports:
-        - '127.0.0.1:3010:3010'
+        - '0.0.0.0:3010:3010'
     networks:
         - remnawave-network
-    depends_on:
-      remnawave:
-        condition: service_started
 
   payment-api:
     build:
@@ -144,13 +107,11 @@ services:
       - APACHE_DOCUMENT_ROOT=/var/www/html
       - PAYMENT_DB_HOST=payment-db
       - PAYMENT_DB_PORT=5432
-      - PAYMENT_DB_NAME=${PAYMENT_DB_NAME}
-      - PAYMENT_DB_USER=${PAYMENT_DB_USER}
-      - PAYMENT_DB_PASSWORD=${PAYMENT_DB_PASSWORD}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_NOTIFY_CRM_CHAT_ID=${TELEGRAM_NOTIFY_CRM_CHAT_ID}
-    env_file:
-      - .env.api  # Новый .env файл для API
+      - PAYMENT_DB_NAME=payment_api
+      - PAYMENT_DB_USER=payment_user
+      - PAYMENT_DB_PASSWORD=payment_password_456
+      - TELEGRAM_BOT_TOKEN=8424446876:AAGFCuNKrIKTEjd1yb5fkxb8MO6uuOgaey8
+      - TELEGRAM_NOTIFY_CRM_CHAT_ID=-1002944439448
     networks:
       - remnawave-network
     ports:
@@ -161,6 +122,29 @@ services:
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:80/health-check.php']
       interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  payment-db:
+    image: postgres:17.6
+    container_name: 'payment-db'
+    hostname: payment-db
+    restart: always
+    environment:
+      - POSTGRES_DB=payment_api
+      - POSTGRES_USER=payment_user
+      - POSTGRES_PASSWORD=payment_password_456
+      - TZ=UTC
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - remnawave-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U payment_user -d payment_api']
+      interval: 3s
       timeout: 10s
       retries: 3
 
@@ -175,10 +159,6 @@ volumes:
     driver: local
     external: false
     name: remnawave-db-data
-  payment-db-data:
-    driver: local
-    external: false
-    name: payment-db-data
   remnawave-redis-data:
     driver: local
     external: false
@@ -187,3 +167,7 @@ volumes:
     driver: local
     external: false
     name: caddy-ssl-data
+  payment-db-data:
+    driver: local
+    external: false
+    name: payment-db-data
